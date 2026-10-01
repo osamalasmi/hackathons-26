@@ -105,8 +105,52 @@ Passagier --> UC8
 ![Use case diagram HitchTracker](usecase.png)
 
 ### 3.2 Use case beschrijvingen
-<!-- TODO: per use case — actor, trigger, stappen, alternatieve flows -->
+### 3.2 Use case beschrijvingen
 
+**UC3: Chauffeurgegevens registreren**
+- **Actor:** Chauffeur
+- **Trigger:** Chauffeur meldt zich aan als chauffeur in het systeem
+- **Precondities:** Chauffeur heeft nog geen account
+- **Hoofdflow:**
+    1. Chauffeur vult persoonsgegevens in (naam, leeftijd, taal, etc.)
+    2. Chauffeur uploadt rijbewijs-/vergunningsnummer en foto van het document
+    3. Chauffeur uploadt een profielfoto van zichzelf
+    4. Systeem slaat de gegevens op in `drivers`
+- **Alternatieve flow:** Als het document onleesbaar of ongeldig is, wordt de registratie geweigerd en moet de chauffeur opnieuw uploaden
+- **Postconditie:** Chauffeur staat geregistreerd, inclusief verificatiegegevens
+
+**UC4: Chauffeur verifiëren voor instappen**
+- **Actor:** Passagier
+- **Trigger:** Taxi stopt bij de passagier, passagier opent de verificatie in de app
+- **Precondities:** Rit is nog niet gestart; chauffeur is aan deze rit gekoppeld
+- **Hoofdflow:**
+    1. App toont profielfoto en naam van de gekoppelde chauffeur
+    2. Passagier vergelijkt de foto met de persoon die voor hem staat
+    3. Passagier bevestigt dat het klopt
+    4. Rit start
+- **Alternatieve flow:** Komt de persoon niet overeen met de foto, dan weigert de passagier in te stappen en meldt dit in de app; de rit start niet
+- **Postconditie:** Rit is gestart met geverifieerde chauffeur, of geannuleerd
+
+**UC7: Rit voortijdig beëindigen**
+- **Actor:** Passagier
+- **Trigger:** Passagier voelt zich onveilig of ziet dat route/prijs afwijkt
+- **Precondities:** Rit is actief
+- **Hoofdflow:**
+    1. Passagier drukt op "rit beëindigen" in de app
+    2. Systeem stopt het vastleggen van `route_points` voor deze rit
+    3. Systeem berekent `final_price`, `final_distance`, `final_duration` op basis van de punten tot dat moment
+    4. Systeem toont het (voortijdige) eindoverzicht
+- **Postconditie:** Rit staat als voortijdig beëindigd geregistreerd, met final-waarden tot het moment van stoppen
+
+**Overige use cases (kort):**
+
+| Use case | Actor | Omschrijving |
+|---|---|---|
+| UC1 | Passagier | Voert bestemming in; bij ongeldig adres toont systeem foutmelding |
+| UC2 | Passagier | Bekijkt schatting van prijs, afstand en tijd op basis van UC1 |
+| UC5 | Passagier | Ziet live de gereden en nog te rijden route tijdens de rit |
+| UC6 | Passagier | Ziet live de actuele prijs tijdens de rit |
+| UC8 | Passagier | Bekijkt eindoverzicht (final_price, final_distance, final_duration) na afloop |
 ### 3.3 Wireframes / mock-ups
 <!-- TODO: belangrijkste schermen -->
 
