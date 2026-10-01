@@ -76,7 +76,33 @@ Table route_points {
 ## 3. Gebruikersperspectief
 
 ### 3.1 Use case diagram
-<!-- TODO: PlantUML, nog te maken -->
+
+```plantuml
+@startuml
+actor Passagier
+actor Chauffeur
+
+usecase "Bestemming invoeren" as UC1
+usecase "Schatting bekijken (prijs, afstand, tijd)" as UC2
+usecase "Chauffeurgegevens registreren" as UC3
+usecase "Chauffeur verifiëren voor instappen" as UC4
+usecase "Actuele route volgen" as UC5
+usecase "Actuele prijs volgen" as UC6
+usecase "Rit voortijdig beëindigen" as UC7
+usecase "Eindoverzicht bekijken" as UC8
+
+Passagier --> UC1
+Passagier --> UC2
+Chauffeur --> UC3
+Passagier --> UC4
+Passagier --> UC5
+Passagier --> UC6
+Passagier --> UC7
+Passagier --> UC8
+@enduml
+```
+
+![Use case diagram HitchTracker](usecase.png)
 
 ### 3.2 Use case beschrijvingen
 <!-- TODO: per use case — actor, trigger, stappen, alternatieve flows -->
