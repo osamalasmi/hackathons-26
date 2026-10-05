@@ -65,7 +65,7 @@ Table route_points {
 }
 ```
 
-![ERD HitchTracker](Hitchtracker.png)
+![ERD HitchTracker](docs/Hitchtracker.png)
 [Bekijk ERD op dbdiagram.io](https://dbdiagram.io/d/Hitchtracker-6aba51070f25a52d01296630)
 
 **Ontwerpkeuzes (kort):**
@@ -102,7 +102,7 @@ Passagier --> UC8
 @enduml
 ```
 
-![Use case diagram HitchTracker](usecase.png)
+![Use case diagram HitchTracker](docs/usecase.png)
 
 ### 3.2 Use case beschrijvingen
 
@@ -153,10 +153,10 @@ Passagier --> UC8
 
 ### 3.3 Wireframes / mock-ups
 
-Low-fidelity wireframes, responsive webapp (desktop 1280px), 5 schermen voor de
+Low-fidelity wireframes, responsieve webapp (desktop 1280px), 5 schermen voor de
 volledige ritflow van de passagier.
 
-[Bekijk wireframes (PDF)](HitchTracker_Wireframes_2.pdf)
+[Bekijk wireframes (pdf)](docs/hitchTracker_wireframes.pdf)
 
 | # | Scherm | Gekoppelde UC('s) |
 |---|---|---|
@@ -208,7 +208,7 @@ repeat while (Rit actief?) is (ja)
 stop
 @enduml
 ```
-![Bekijk Activiteitendiagram](Activiteitendiagram.png)
+![Bekijk Activiteitendiagram](docs/activiteitendiagram.png)
 
 ## 5. Onderbouwing
 
