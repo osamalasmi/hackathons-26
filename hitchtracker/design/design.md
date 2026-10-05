@@ -105,7 +105,6 @@ Passagier --> UC8
 ![Use case diagram HitchTracker](usecase.png)
 
 ### 3.2 Use case beschrijvingen
-### 3.2 Use case beschrijvingen
 
 **UC3: Chauffeurgegevens registreren**
 - **Actor:** Chauffeur
@@ -151,13 +150,65 @@ Passagier --> UC8
 | UC5 | Passagier | Ziet live de gereden en nog te rijden route tijdens de rit |
 | UC6 | Passagier | Ziet live de actuele prijs tijdens de rit |
 | UC8 | Passagier | Bekijkt eindoverzicht (final_price, final_distance, final_duration) na afloop |
+
 ### 3.3 Wireframes / mock-ups
-<!-- TODO: belangrijkste schermen -->
+
+Low-fidelity wireframes, responsive webapp (desktop 1280px), 5 schermen voor de
+volledige ritflow van de passagier.
+
+[Bekijk wireframes (PDF)](HitchTracker_Wireframes_2.pdf)
+
+| # | Scherm | Gekoppelde UC('s) |
+|---|---|---|
+| 01 | Bestemming invoeren | UC1 |
+| 02 | Schatting bevestigen | UC2 |
+| 03 | Chauffeur verifiëren (wachtscherm) | UC4 |
+| 04 | Tijdens de rit | UC5, UC6, UC7 |
+| 05 | Eindoverzicht | UC8 |
+
+**Opmerkingen bij het ontwerp:**
+- Scherm 01: "Volgende" blijft inactief tot beide adresvelden gevuld zijn; een
+  ongeldig/onbekend adres toont een foutmelding onder het veld.
+- Scherm 03: bij "Dit klopt niet" start de rit niet en gaat de passagier terug
+  naar scherm 01 — dit is de alternatieve flow uit UC4 (3.2).
+- Scherm 04: kaart en actuele prijs worden bijgewerkt op basis van
+  `route_points` (in dit prototype gesimuleerd); "Rit beëindigen" kan op elk
+  moment en leidt direct naar scherm 05 (UC7).
+- Scherm 05: toont `final_price`/`final_distance`/`final_duration` naast de
+  `estimated_*`-waarden uit scherm 02, ter onderbouwing van het
+  "zwart-op-wit"-uitgangspunt. Bij voortijdig beëindigen komt er een label
+  "Rit voortijdig beëindigd" boven de titel.
 
 ## 4. Programmalogica
 
 ### 4.1 Activiteitendiagram
-<!-- TODO: PlantUML, kernlogica (bijv. rit starten → GPS loggen → rit afsluiten → final-waarden berekenen) -->
+
+```plantuml
+@startuml
+start
+:Bestemming invoeren;
+:Schatting tonen (prijs, afstand, tijd);
+:Rit bevestigen;
+:Chauffeur en kenteken tonen;
+if (Klopt chauffeur met getoonde gegevens?) then (nee)
+  :Afwijking melden;
+  stop
+else (ja)
+endif
+:Rit starten;
+repeat
+  :GPS-punt vastleggen in route_points;
+  :Actuele prijs/route bijwerken;
+backward: Rit nog niet beëindigd;
+repeat while (Rit actief?) is (ja)
+->nee;
+:Final waarden berekenen
+(final_price, final_distance, final_duration);
+:Eindoverzicht tonen;
+stop
+@enduml
+```
+![Bekijk Activiteitendiagram](Activiteitendiagram.png)
 
 ## 5. Onderbouwing
 
@@ -174,19 +225,46 @@ en klaar te zetten in `Routes`. De brondata (route_points) blijft bewaard als
 bewijs, de final-kolommen zijn het al-berekende antwoord daarop.
 
 ### 5.2 Ethiek
-<!-- TODO: -->
+
+Het systeem geeft de passagier de mogelijkheid om bij het verifiëren van de
+chauffeur (scherm 03) aan te geven dat de persoon of het kenteken niet klopt.
+Dit mag niet direct leiden tot een sanctie voor de chauffeur (bijv. account
+blokkeren), omdat een melding ten onrechte gedaan kan worden — per ongeluk of
+met kwade bedoeling. Een melding wordt daarom eerst door het bedrijf
+beoordeeld voordat er actie wordt ondernomen richting de chauffeur. Zo wordt
+de chauffeur beschermd tegen misbruik van de meldfunctie, terwijl de
+passagier wel de mogelijkheid houdt om een echte afwijking te melden.
 
 ### 5.3 Privacy
-<!-- TODO: locatiedata, chauffeurdocumenten/foto's — wat leg je vast, hoe lang, wie mag het zien -->
+
+HitchTracker verwerkt persoonsgegevens: de locatie van een rit (`route_points`),
+gegevens van de passagier (`users`) en van de chauffeur, waaronder
+rijbewijs-/vergunningsnummer en foto's (`drivers`). Dit valt onder de AVG
+(GDPR). Het uitgangspunt is opslagbeperking: persoonsgegevens worden niet
+langer bewaard dan nodig is voor het doel waarvoor ze zijn verzameld.
+
+- **Doel van bewaren:** alleen het kunnen afhandelen van een klacht of geschil
+  over een rit (bijv. een afwijkende prijs of omweg die pas later wordt gemeld).
+  Daarvoor zijn de route en de gegevens van de betrokken personen nodig.
+- **Bewaartermijn:** [X dagen/maanden, nog te bepalen] na afloop van de rit.
+  Daarna worden de persoonsgegevens verwijderd of geanonimiseerd.
+- **Statistiek:** geen reden om persoonsgegevens langer te bewaren. Algemene
+  data (bijv. gemiddelde afwijking tussen schatting en eindprijs) bevat geen
+  naam, foto of exacte route.
 
 ### 5.4 Security
-<!-- TODO: -->
 
-## 6. Concurrentieanalyse
-<!-- TODO: wat doen vergelijkbare apps goed/niet goed -->
+**Toegang tot de database:** alleen medewerkers van het bedrijf die de gegevens
+nodig hebben voor hun werk, bijvoorbeeld bij het afhandelen van een klacht
+(role-based access control). De naam van de rol verschilt per bedrijf (bijv.
+admin, HR of klantenservice). Passagiers en chauffeurs hebben geen directe
+toegang tot de database.
 
-## 7. Planning (3 weken)
-<!-- TODO: fase 1 / fase 2 / fase 3, per week -->
+**Toegang via de applicatie:** een passagier of chauffeur ziet alleen de
+gegevens die bij zijn eigen rit horen (bijv. de chauffeurfoto en het kenteken
+vóór de rit, het eindoverzicht na afloop), niet die van andere ritten of
+gebruikers.
+
 
 ## 8. Akkoord leidinggevende
 <!-- TODO -->
