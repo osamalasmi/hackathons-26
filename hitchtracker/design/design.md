@@ -38,6 +38,7 @@ Table drivers{
   license_number varchar
   license_photo varchar
   profile_photo varchar
+  vehicle_plate varchar
 }
 
 Table Routes{
@@ -52,6 +53,7 @@ Table Routes{
   final_price decimal(10, 2)
   final_distance decimal(10,2)
   final_duration integer
+  status varchar [note: 'waiting, active, completed, cancelled, ended_early']
   user_id integer [ref: > users.id, not null]
   driver_id integer [ref: > drivers.id, not null]
 }
@@ -68,10 +70,22 @@ Table route_points {
 ![ERD HitchTracker](docs/Hitchtracker.png)
 [Bekijk ERD op dbdiagram.io](https://dbdiagram.io/d/Hitchtracker-6aba51070f25a52d01296630)
 
-**Ontwerpkeuzes (kort):**
-- `route_points` is een losse tabel (1-op-veel met `Routes`) omdat één rit uit veel GPS-punten bestaat, niet als kolom te proppen.
-- `final_price`, `final_distance`, `final_duration` zijn afgeleide waarden: berekend uit `route_points`, maar wel apart opgeslagen in `Routes` i.p.v. telkens herberekend (zie 5.1 Haalbaarheid).
-- `license_number`, `license_photo`, `profile_photo` in `drivers` dekken de chauffeurverificatie vóór de rit (Epic 1).
+**Ontwerpkeuzes:**
+
+- `route_points` is een losse tabel: een rit bestaat uit veel GPS-punten en die passen niet in één kolom.
+- `estimated_*` en `final_*` staan naast elkaar: alleen als je vooraf én achteraf iets vastlegt, kun je het verschil
+  aantonen ("zwart op wit").
+- `final_*` worden apart opgeslagen in plaats van steeds herberekend (zie 5.1).
+- `decimal(10,2)` voor prijs en afstand: decimal rekent exact, een kommagetal (float) kan afrondingsfouten geven en bij
+  geld mag er geen cent afwijken.
+- `decimal(9,6)` voor coördinaten: 6 decimalen is ongeveer 10 centimeter nauwkeurig, ruim genoeg voor GPS.
+- Duur is een `integer` in minuten: makkelijk te berekenen en te vergelijken met de schatting.
+- `not null` op `user_id`, `driver_id` en `route_id`: een rit zonder passagier of chauffeur, of een punt zonder rit,
+  heeft geen bewijswaarde.
+- Foto's staan als `varchar` (pad of URL): bestanden horen niet in de database, alleen de verwijzing.
+- `license_number`, `license_photo`, `profile_photo` en `vehicle_plate` in `drivers`: voor de verificatie vóór de rit,
+  het enige moment waarop de passagier nog kan weglopen.
+- `status` in `Routes`: geannuleerde (UC4) en voortijdig beëindigde ritten (UC7) moeten terug te vinden zijn.
 
 ## 3. Gebruikersperspectief
 
@@ -102,11 +116,15 @@ Passagier --> UC8
 @enduml
 ```
 
+UC3 hoort bij het ontwerp, maar valt buiten de scope van het prototype (zie `scope.md`). Chauffeurgegevens komen als
+dummydata in de database.
+
 ![Use case diagram HitchTracker](docs/usecase.png)
 
 ### 3.2 Use case beschrijvingen
 
 **UC3: Chauffeurgegevens registreren**
+
 - **Actor:** Chauffeur
 - **Trigger:** Chauffeur meldt zich aan als chauffeur in het systeem
 - **Precondities:** Chauffeur heeft nog geen account
@@ -115,22 +133,27 @@ Passagier --> UC8
     2. Chauffeur uploadt rijbewijs-/vergunningsnummer en foto van het document
     3. Chauffeur uploadt een profielfoto van zichzelf
     4. Systeem slaat de gegevens op in `drivers`
-- **Alternatieve flow:** Als het document onleesbaar of ongeldig is, wordt de registratie geweigerd en moet de chauffeur opnieuw uploaden
+- **Alternatieve flow:** Als het document onleesbaar of ongeldig is, wordt de registratie geweigerd en moet de chauffeur
+  opnieuw uploaden
 - **Postconditie:** Chauffeur staat geregistreerd, inclusief verificatiegegevens
 
 **UC4: Chauffeur verifiëren voor instappen**
+
 - **Actor:** Passagier
 - **Trigger:** Taxi stopt bij de passagier, passagier opent de verificatie in de app
 - **Precondities:** Rit is nog niet gestart; chauffeur is aan deze rit gekoppeld
 - **Hoofdflow:**
-    1. App toont profielfoto en naam van de gekoppelde chauffeur
-    2. Passagier vergelijkt de foto met de persoon die voor hem staat
-    3. Passagier bevestigt dat het klopt
-    4. Rit start
-- **Alternatieve flow:** Komt de persoon niet overeen met de foto, dan weigert de passagier in te stappen en meldt dit in de app; de rit start niet
-- **Postconditie:** Rit is gestart met geverifieerde chauffeur, of geannuleerd
+    1. App toont profielfoto, naam en kenteken van de gekoppelde chauffeur
+    2. Passagier vergelijkt dit met de persoon en de auto voor hem
+    3. Passagier kiest "Dit klopt, start rit"
+    4. Rit start (status `active`)
+- **Alternatieve flow:** Klopt de persoon of het kenteken niet, dan kiest de passagier "Dit klopt niet". De rit wordt
+  geannuleerd (status `cancelled`), de melding wordt door het bedrijf beoordeeld (zie 5.2) en de passagier gaat terug
+  naar scherm 01.
+- **Postconditie:** Rit is gestart, of geannuleerd
 
 **UC7: Rit voortijdig beëindigen**
+
 - **Actor:** Passagier
 - **Trigger:** Passagier voelt zich onveilig of ziet dat route/prijs afwijkt
 - **Precondities:** Rit is actief
@@ -143,13 +166,13 @@ Passagier --> UC8
 
 **Overige use cases (kort):**
 
-| Use case | Actor | Omschrijving |
-|---|---|---|
-| UC1 | Passagier | Voert bestemming in; bij ongeldig adres toont systeem foutmelding |
-| UC2 | Passagier | Bekijkt schatting van prijs, afstand en tijd op basis van UC1 |
-| UC5 | Passagier | Ziet live de gereden en nog te rijden route tijdens de rit |
-| UC6 | Passagier | Ziet live de actuele prijs tijdens de rit |
-| UC8 | Passagier | Bekijkt eindoverzicht (final_price, final_distance, final_duration) na afloop |
+| Use case | Actor     | Omschrijving                                                                  |
+|----------|-----------|-------------------------------------------------------------------------------|
+| UC1      | Passagier | Voert bestemming in; bij ongeldig adres toont systeem foutmelding             |
+| UC2      | Passagier | Bekijkt schatting van prijs, afstand en tijd op basis van UC1                 |
+| UC5      | Passagier | Ziet live de gereden en nog te rijden route tijdens de rit                    |
+| UC6      | Passagier | Ziet live de actuele prijs en de geschatte eindprijs tijdens de rit           |
+| UC8      | Passagier | Bekijkt eindoverzicht (final_price, final_distance, final_duration) na afloop |
 
 ### 3.3 Wireframes / mock-ups
 
@@ -158,22 +181,23 @@ volledige ritflow van de passagier.
 
 [Bekijk wireframes (pdf)](docs/hitchTracker_wireframes.pdf)
 
-| # | Scherm | Gekoppelde UC('s) |
-|---|---|---|
-| 01 | Bestemming invoeren | UC1 |
-| 02 | Schatting bevestigen | UC2 |
-| 03 | Chauffeur verifiëren (wachtscherm) | UC4 |
-| 04 | Tijdens de rit | UC5, UC6, UC7 |
-| 05 | Eindoverzicht | UC8 |
+| #  | Scherm                             | Gekoppelde UC('s) |
+|----|------------------------------------|-------------------|
+| 01 | Bestemming invoeren                | UC1               |
+| 02 | Schatting bevestigen               | UC2               |
+| 03 | Chauffeur verifiëren (wachtscherm) | UC4               |
+| 04 | Tijdens de rit                     | UC5, UC6, UC7     |
+| 05 | Eindoverzicht                      | UC8               |
 
 **Opmerkingen bij het ontwerp:**
+
 - Scherm 01: "Volgende" blijft inactief tot beide adresvelden gevuld zijn; een
   ongeldig/onbekend adres toont een foutmelding onder het veld.
-- Scherm 03: bij "Dit klopt niet" start de rit niet en gaat de passagier terug
-  naar scherm 01 — dit is de alternatieve flow uit UC4 (3.2).
-- Scherm 04: kaart en actuele prijs worden bijgewerkt op basis van
-  `route_points` (in dit prototype gesimuleerd); "Rit beëindigen" kan op elk
-  moment en leidt direct naar scherm 05 (UC7).
+- Scherm 03: bij "Dit klopt niet" wordt de rit geannuleerd en gaat de passagier terug naar scherm 01. Dit is dezelfde
+  alternatieve flow als in UC4 en in het activiteitendiagram.
+- Scherm 04: toont de actuele prijs naast de geschatte eindprijs (`estimated_price`). Kaart en prijs worden bijgewerkt
+  op basis van `route_points` (in dit prototype gesimuleerd). "Rit beëindigen" kan op elk moment en leidt direct naar
+  scherm 05 (UC7).
 - Scherm 05: toont `final_price`/`final_distance`/`final_duration` naast de
   `estimated_*`-waarden uit scherm 02, ter onderbouwing van het
   "zwart-op-wit"-uitgangspunt. Bij voortijdig beëindigen komt er een label
@@ -189,16 +213,17 @@ start
 :Bestemming invoeren;
 :Schatting tonen (prijs, afstand, tijd);
 :Rit bevestigen;
-:Chauffeur en kenteken tonen;
+:Chauffeur, foto en kenteken tonen;
 if (Klopt chauffeur met getoonde gegevens?) then (nee)
   :Afwijking melden;
+  :Rit annuleren, terug naar start;
   stop
 else (ja)
 endif
 :Rit starten;
 repeat
   :GPS-punt vastleggen in route_points;
-  :Actuele prijs/route bijwerken;
+  :Actuele prijs en geschatte eindprijs tonen;
 backward: Rit nog niet beëindigd;
 repeat while (Rit actief?) is (ja)
 ->nee;
@@ -208,6 +233,7 @@ repeat while (Rit actief?) is (ja)
 stop
 @enduml
 ```
+
 ![Bekijk Activiteitendiagram](docs/activiteitendiagram.png)
 
 ## 5. Onderbouwing
@@ -224,6 +250,12 @@ opnieuw te berekenen, dat is trager dan het resultaat één keer te berekenen
 en klaar te zetten in `Routes`. De brondata (route_points) blijft bewaard als
 bewijs, de final-kolommen zijn het al-berekende antwoord daarop.
 
+Het prototype is een website (Next.js met TypeScript) met dummydata en gesimuleerde GPS-punten. Reden: de bouwtijd is
+beperkt, en echte live GPS van een telefoon of een native app kost daar te veel van. Browser-GPS werkt alleen via HTTPS
+en met toestemming van de gebruiker, en is minder betrouwbaar op de achtergrond; voor productie zou een native app beter
+zijn. Ik kies Next.js met TypeScript omdat ik dat wil leren. Dat kost extra tijd en is een bewust risico, daarom bouw ik
+eerst één rit die van begin tot eind werkt.
+
 ### 5.2 Ethiek
 
 Het systeem geeft de passagier de mogelijkheid om bij het verifiëren van de
@@ -239,15 +271,17 @@ passagier wel de mogelijkheid houdt om een echte afwijking te melden.
 
 HitchTracker verwerkt persoonsgegevens: de locatie van een rit (`route_points`),
 gegevens van de passagier (`users`) en van de chauffeur, waaronder
-rijbewijs-/vergunningsnummer en foto's (`drivers`). Dit valt onder de AVG
-(GDPR). Het uitgangspunt is opslagbeperking: persoonsgegevens worden niet
+rijbewijs-/vergunningsnummer en foto's (`drivers`). Dit valt onder de AVG (GDPR). Het uitgangspunt is opslagbeperking:
+persoonsgegevens worden niet
 langer bewaard dan nodig is voor het doel waarvoor ze zijn verzameld.
 
 - **Doel van bewaren:** alleen het kunnen afhandelen van een klacht of geschil
   over een rit (bijv. een afwijkende prijs of omweg die pas later wordt gemeld).
   Daarvoor zijn de route en de gegevens van de betrokken personen nodig.
-- **Bewaartermijn:** [X dagen/maanden, nog te bepalen] na afloop van de rit.
-  Daarna worden de persoonsgegevens verwijderd of geanonimiseerd.
+- **Bewaartermijn:** 12 maanden na afloop van de rit. Reden: een klacht over een
+  omweg of prijs komt meestal binnen 12 maanden na de rit binnen, en
+  daarna is er geen doel meer om de route en de gegevens van de personen te
+  bewaren. Daarna worden ze verwijderd of geanonimiseerd.
 - **Statistiek:** geen reden om persoonsgegevens langer te bewaren. Algemene
   data (bijv. gemiddelde afwijking tussen schatting en eindprijs) bevat geen
   naam, foto of exacte route.
@@ -255,8 +289,8 @@ langer bewaard dan nodig is voor het doel waarvoor ze zijn verzameld.
 ### 5.4 Security
 
 **Toegang tot de database:** alleen medewerkers van het bedrijf die de gegevens
-nodig hebben voor hun werk, bijvoorbeeld bij het afhandelen van een klacht
-(role-based access control). De naam van de rol verschilt per bedrijf (bijv.
+nodig hebben voor hun werk, bijvoorbeeld bij het afhandelen van een klacht (role-based access control). De naam van de
+rol verschilt per bedrijf (bijv.
 admin, HR of klantenservice). Passagiers en chauffeurs hebben geen directe
 toegang tot de database.
 
@@ -265,6 +299,14 @@ gegevens die bij zijn eigen rit horen (bijv. de chauffeurfoto en het kenteken
 vóór de rit, het eindoverzicht na afloop), niet die van andere ritten of
 gebruikers.
 
+De verbinding tussen browser en server loopt via HTTPS, zodat niemand op het netwerk de locatie of de documentfoto's kan
+meelezen.
+
+## 6. Concurrentieanalyse
+<!-- TODO: na realisatie -->
+
+## 7. Planning (3 weken)
+<!-- TODO: na realisatie -->
 
 ## 8. Akkoord leidinggevende
 <!-- TODO -->
