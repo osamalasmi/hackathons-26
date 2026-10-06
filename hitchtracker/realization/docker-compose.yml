@@ -1,0 +1,15 @@
+services:
+  db:
+    image: postgres:17
+    container_name: hitchtracker-db
+    environment:
+      POSTGRES_USER: hitch
+      POSTGRES_PASSWORD: hitch
+      POSTGRES_DB: hitchtracker
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
